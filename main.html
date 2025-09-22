@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+// 待办事项应用
+class TodoApp {
+    constructor() {
+        this.todos = [];
+        this.nextId = 1;
+        this.init();
+    }
+
+    init() {
+        // 创建HTML结构
+        this.createHTMLStructure();
+
+        // 绑定事件
+        this.bindEvents();
+
+        // 加载本地存储的数据
+        this.loadFromLocalStorage();
+
+        // 渲染初始列表
+        this.renderTodos();
+    }
+
+    createHTMLStructure() {
+        // 创建应用容器
+        const appContainer = document.createElement('div');
+        appContainer.id = 'todo-app';
+        appContainer.style.cssText = `
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        `;
+
+        // 创建标题
+        const title = document.createElement('h1');
+        title.textContent = '📝 待办事项';
+        title.style.cssText = `
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        `;
+
+        // 创建输入区域
+        const inputContainer = document.createElement('div');
+        inputContainer.style.cssText = `
+            display: flex;
+            margin-bottom: 20px;
+        `;
+
+        this.todoInput = document.createElement('input');
+        this.todoInput.type = 'text';
+        this.todoInput.placeholder = '添加新的待办事项...';
+        this.todoInput.style.cssText = `
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px 0 0 4px;
+            font-size: 16px;
+        `;
+
+        this.addButton = document.createElement('button');
+        this.addButton.textContent = '添加';
+        this.addButton.style.cssText = `
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        `;
+        this.addButton.onmouseover = () => this.addButton.style.backgroundColor = '#45a049';
+        this.addButton.onmouseout = () => this.addButton.style.backgroundColor = '#4CAF50';
+
+        inputContainer.appendChild(this.todoInput);
+        inputContainer.appendChild(this.addButton);
+
+        // 创建统计信息
+        this.statsDiv = document.createElement('div');
+        this.statsDiv.style.cssText = `
+            text-align: center;
+            margin-bottom: 15px;
+            color: #666;
+            font-size: 14px;
+        `;
+
+        // 创建过滤按钮
+        const filterContainer = document.createElement('div');
+        filterContainer.style.cssText = `
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+            gap: 10px;
+        `;
+
+        this.allBtn = this.createFilterButton('全部', 'all', true);
+        this.activeBtn = this.createFilterButton('未完成', 'active', false);
+        this.completedBtn = this.createFilterButton('已完成', 'completed', false);
+
+        filterContainer.appendChild(this.allBtn);
+        filterContainer.appendChild(this.activeBtn);
+        filterContainer.appendChild(this.completedBtn);
+
+        // 创建待办事项列表
+        this.todoList = document.createElement('ul');
+        this.todoList.style.cssText = `
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        `;
+
+        // 组装页面
+        appContainer.appendChild(title);
+        appContainer.appendChild(inputContainer);
+        appContainer.appendChild(this.statsDiv);
+        appContainer.appendChild(filterContainer);
+        appContainer.appendChild(this.todoList);
+
+        // 添加到页面
+        document.body.appendChild(appContainer);
+    }
+
+    createFilterButton(text, filterType, isActive) {
+        const button = document.createElement('button');
+        button.textContent = text;
+        button.dataset.filter = filterType;
+        button.style.cssText = `
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: ${isActive ? '#4CAF50' : '#f1f1f1'};
+            color: ${isActive ? 'white' : '#333'};
+            font-size: 14px;
+            transition: all 0.3s;
+        `;
+
+        if (!isActive) {
+            button.onmouseover = () => button.style.backgroundColor = '#e1e1e1';
+            button.onmouseout = () => button.style.backgroundColor = '#f1f1f1';
+        }
+
+        return button;
+    }
+
+    bindEvents() {
+        // 添加待办事项
+        this.addButton.addEventListener('click', () => this.addTodo());
+        this.todoInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.addTodo();
+            }
+        });
+
+        // 过滤按钮事件
+        this.allBtn.addEventListener('click', () => this.setFilter('all'));
+        this.activeBtn.addEventListener('click', () => this.setFilter('active'));
+        this.completedBtn.addEventListener('click', () => this.setFilter('completed'));
+
+        // 当前过滤器
+        this.currentFilter = 'all';
+    }
+
+    addTodo() {
+        const text = this.todoInput.value.trim();
+        if (text === '') return;
+
+        const todo = {
+            id: this.nextId++,
+            text: text,
+            completed: false,
+            createdAt: new Date()
+        };
+
+        this.todos.push(todo);
+        this.todoInput.value = '';
+        this.saveToLocalStorage();
+        this.renderTodos();
+    }
+
+    toggleTodo(id) {
+        const todo = this.todos.find(t => t.id === id);
+        if (todo) {
+            todo.completed = !todo.completed;
+            this.saveToLocalStorage();
+            this.renderTodos();
+        }
+    }
+
+    deleteTodo(id) {
+        this.todos = this.todos.filter(t => t.id !== id);
+        this.saveToLocalStorage();
+        this.renderTodos();
+    }
+
+    setFilter(filter) {
+        this.currentFilter = filter;
+
+        // 更新按钮样式
+        [this.allBtn, this.activeBtn, this.completedBtn].forEach(btn => {
+            const isActive = btn.dataset.filter === filter;
+            btn.style.backgroundColor = isActive ? '#4CAF50' : '#f1f1f1';
+            btn.style.color = isActive ? 'white' : '#333';
+
+            if (!isActive) {
+                btn.onmouseover = () => btn.style.backgroundColor = '#e1e1e1';
+                btn.onmouseout = () => btn.style.backgroundColor = '#f1f1f1';
+            }
+        });
+
+        this.renderTodos();
+    }
+
+    getFilteredTodos() {
+        switch (this.currentFilter) {
+            case 'active':
+                return this.todos.filter(todo => !todo.completed);
+            case 'completed':
+                return this.todos.filter(todo => todo.completed);
+            default:
+                return this.todos;
+        }
+    }
+
+    renderTodos() {
+        // 清空列表
+        this.todoList.innerHTML = '';
+
+        // 获取过滤后的待办事项
+        const filteredTodos = this.getFilteredTodos();
+
+        if (filteredTodos.length === 0) {
+            const emptyMessage = document.createElement('li');
+            emptyMessage.textContent = this.currentFilter === 'all'
+                ? '🎉 暂无待办事项，添加一个吧！'
+                : '✅ 没有符合条件的待办事项';
+            emptyMessage.style.cssText = `
+                text-align: center;
+                padding: 20px;
+                color: #666;
+                font-style: italic;
+            `;
+            this.todoList.appendChild(emptyMessage);
+        } else {
+            filteredTodos.forEach(todo => {
+                const li = document.createElement('li');
+                li.style.cssText = `
+                    background: white;
+                    padding: 15px;
+                    margin-bottom: 10px;
+                    border-radius: 4px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    display: flex;
+                    align-items: center;
+                    transition: all 0.3s;
+                `;
+
+                if (todo.completed) {
+                    li.style.backgroundColor = '#f9f9f9';
+                }
+
+                li.onmouseover = () => li.style.transform = 'translateX(5px)';
+                li.onmouseout = () => li.style.transform = 'translateX(0)';
+
+                // 复选框
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = todo.completed;
+                checkbox.style.cssText = `
+                    margin-right: 15px;
+                    transform: scale(1.2);
+                    cursor: pointer;
+                `;
+                checkbox.addEventListener('change', () => this.toggleTodo(todo.id));
+
+                // 文本
+                const span = document.createElement('span');
+                span.textContent = todo.text;
+                span.style.cssText = `
+                    flex: 1;
+                    text-decoration: ${todo.completed ? 'line-through' : 'none'};
+                    color: ${todo.completed ? '#888' : '#333'};
+                    font-size: 16px;
+                `;
+
+                // 删除按钮
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '×';
+                deleteBtn.style.cssText = `
+                    background: none;
+                    border: none;
+                    color: #ff5252;
+                    font-size: 20px;
+                    cursor: pointer;
+                    padding: 5px 10px;
+                    border-radius: 4px;
+                    transition: background-color 0.3s;
+                `;
+                deleteBtn.onmouseover = () => deleteBtn.style.backgroundColor = '#ffebee';
+                deleteBtn.onmouseout = () => deleteBtn.style.backgroundColor = 'transparent';
+                deleteBtn.addEventListener('click', () => this.deleteTodo(todo.id));
+
+                li.appendChild(checkbox);
+                li.appendChild(span);
+                li.appendChild(deleteBtn);
+
+                this.todoList.appendChild(li);
+            });
+        }
+
+        // 更新统计信息
+        this.updateStats();
+    }
+
+    updateStats() {
+        const total = this.todos.length;
+        const completed = this.todos.filter(t => t.completed).length;
+        const remaining = total - completed;
+
+        this.statsDiv.innerHTML = `
+            <strong>总计: ${total}</strong> |
+            未完成: ${remaining} |
+            已完成: ${completed}
+        `;
+    }
+
+    saveToLocalStorage() {
+        localStorage.setItem('todos', JSON.stringify({
+            todos: this.todos,
+            nextId: this.nextId
+        }));
+    }
+
+    loadFromLocalStorage() {
+        try {
+            const saved = localStorage.getItem('todos');
+            if (saved) {
+                const data = JSON.parse(saved);
+                this.todos = data.todos || [];
+                this.nextId = data.nextId || 1;
+            }
+        } catch (e) {
+            console.error('加载本地数据失败:', e);
+            this.todos = [];
+            this.nextId = 1;
+        }
+    }
+}
+
+// 启动应用
+document.addEventListener('DOMContentLoaded', () => {
+    new TodoApp();
+});
+
+// 如果你想在控制台测试，也可以直接运行：
+// const todoApp = new TodoApp();
+</script>
+</body>
+</html>
