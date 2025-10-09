@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>清新简约 待办事项</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* Root / theme variables */
+    :root{
+      --bg: #F9FAFB;
+      --card: #ffffff;
+      --primary: #42B883;          /* 主色 */
+      --primary-600: #36a26b;
+      --text-dark: #333333;       /* 未完成文本 */
+      --text-muted: #999999;      /* 已完成文本 */
+      --accent-red: #FF6B6B;      /* 删除按钮 */
+      --stat-text: #6B7280;       /* 统计/按钮文本 */
+      --filter-bg: #E5E7EB;       /* 过滤默认背景 */
+      --card-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      --glass: rgba(255,255,255,0.6);
+      --radius: 12px;
+      --transition: all 0.3s ease;
+      --max-width: 920px;
+      --desktop-left: 200px;
+    }
+
+    /* Dark theme variables override */
+    :root[data-theme='dark']{
+      --bg: #0b0f12;
+      --card: #0f1416;
+      --primary: #42b883;
+      --primary-600: #2f8a67;
+      --text-dark: #e6eef0;
+      --text-muted: #9aa5a7;
+      --accent-red: #ff7b7b;
+      --stat-text: #9aa5a7;
+      --filter-bg: #1b2224;
+      --card-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+
+    /* Global */
+    *{box-sizing: border-box; transition: var(--transition);}
+    html,body{height:100%;}
+    body{
+      margin:0;
+      font-family: Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft Yahei", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text-dark);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* App container */
+    .app {
+      width: min(var(--max-width), 100%);
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* Desktop layout with left stats column */
+    @media (min-width:768px){
+      .app {
+        grid-template-columns: var(--desktop-left) 1fr;
+      }
+    }
+
+    /* Card */
+    .panel {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      padding: 18px;
+    }
+
+    /* Header */
+    .header {
+      text-align: left;
+      margin-bottom: 6px;
+    }
+    .title {
+      font-size: 1.8rem;
+      font-weight: 600;
+      margin: 6px 0 12px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .title .accent-line{
+      display:inline-block;
+      width:38px;
+      height:2px;
+      background: var(--primary);
+      border-radius:2px;
+      transform: translateY(6px);
+    }
+
+    /* Controls */
+    .controls {
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .input-area {
+      display:flex;
+      gap:0;
+      width:100%;
+    }
+    .todo-input {
+      flex:1;
+      padding:12px 14px;
+      border:2px solid transparent;
+      border-radius: 10px 0 0 10px;
+      font-size:1rem;
+      line-height:1.5;
+      outline:none;
+      background: transparent;
+      color:var(--text-dark);
+      box-shadow: none;
+    }
+    .todo-input::placeholder{ color: #c7ced0; }
+
+    /* Focus effect */
+    .todo-input:focus{
+      border-color: var(--primary);
+      box-shadow: 0 0 0 6px rgba(66,184,131,0.08);
+      background: rgba(255,255,255,0.01);
+    }
+
+    .add-btn {
+      padding: 10px 16px;
+      background: var(--primary);
+      border:none;
+      color: #fff;
+      border-radius: 0 10px 10px 0;
+      cursor:pointer;
+      font-size: 0.95rem;
+    }
+    .add-btn[disabled]{
+      opacity:0.5;
+      cursor: not-allowed;
+    }
+
+    /* Filter bar */
+    .filter-row{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin-top:12px;
+      position:relative;
+    }
+    .filters{
+      display:flex;
+      gap:8px;
+      padding:4px;
+      background: transparent;
+      border-radius: 999px;
+      position:relative;
+    }
+    .filter-btn{
+      background: var(--filter-bg);
+      color: var(--text-dark);
+      border:none;
+      padding:8px 14px;
+      border-radius: 20px;
+      cursor:pointer;
+      font-size:0.875rem;
+      color: var(--stat-text);
+      position:relative;
+    }
+    .filter-btn.active{
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 6px 20px rgba(66,184,131,0.08);
+    }
+    .filter-indicator{
+      position:absolute;
+      height:4px;
+      background: var(--primary);
+      border-radius:4px;
+      bottom:-8px;
+      left:0;
+      width: 0;
+      transform-origin:left center;
+      transition: var(--transition);
+    }
+
+    .batch-actions{
+      margin-left:auto;
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .btn-ghost{
+      background: transparent;
+      border:1px solid transparent;
+      padding:8px 12px;
+      border-radius: 10px;
+      cursor:pointer;
+      color: var(--stat-text);
+      font-size:0.875rem;
+    }
+    .btn-danger{
+      background: linear-gradient(180deg, rgba(255,107,107,0.08), rgba(255,107,107,0.02));
+      color: var(--accent-red);
+      border:1px solid rgba(255,107,107,0.12);
+    }
+
+    /* Left stats panel on desktop */
+    .left-panel {
+      display:none;
+    }
+    @media (min-width:768px){
+      .left-panel{ display:block; position:sticky; top:24px; height: fit-content; }
+      .stats-card{ display:flex; flex-direction:column; gap:16px; align-items:center; padding:20px; text-align:center; }
+    }
+
+    .progress-wrap{
+      width:120px;
+      height:120px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+    }
+    .progress-label{
+      position:absolute;
+      font-weight:600;
+      color:var(--text-dark);
+      font-size:1rem;
+    }
+    .stats-small{
+      color:var(--stat-text);
+      font-size:0.875rem;
+    }
+
+    /* Todo list */
+    .list-panel { padding:12px 18px 18px; }
+    .todo-list{
+      list-style:none;
+      padding:0;
+      margin:0;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    @media (min-width:768px){
+      .todo-list{ gap:12px; }
+    }
+
+    .todo-item{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      background: var(--card);
+      padding:12px;
+      border-radius:10px;
+      box-shadow: var(--card-shadow);
+      transform-origin: center;
+      overflow:hidden;
+    }
+    @media (max-width:767px){
+      .todo-item{ padding:10px; }
+    }
+
+    .todo-left{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex:1;
+      min-width:0;
+    }
+
+    /* Checkbox custom */
+    .todo-checkbox{
+      width:18px; height:18px;
+      border-radius:4px;
+      border:2px solid #d9d9d9;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      flex:0 0 auto;
+      transition: var(--transition);
+      background: transparent;
+    }
+    .todo-checkbox input{ display:none; }
+    .todo-checkbox svg{ width:14px;height:14px; opacity:0; transform:scale(0.5); transition: var(--transition); }
+    .todo-item.completed .todo-checkbox{
+      background: linear-gradient(180deg, rgba(66,184,131,0.12), rgba(66,184,131,0.04));
+      border-color: var(--primary);
+    }
+    .todo-item.completed .todo-checkbox svg{ opacity:1; transform:scale(1); color:var(--primary); }
+
+    .todo-text{
+      flex:1;
+      font-size:1rem;
+      line-height:1.5;
+      color: var(--text-dark);
+      position:relative;
+      word-break:break-word;
+    }
+    .todo-item.completed .todo-text{ color: var(--text-muted); }
+
+    /* Animated strike-through using pseudo element */
+    .todo-text .strike {
+      position:absolute;
+      left:0;
+      top:50%;
+      height:2px;
+      background: linear-gradient(90deg, rgba(66,184,131,0.9), rgba(66,184,131,0.6));
+      width:0%;
+      transform: translateY(-50%);
+      transition: width 0.3s ease;
+    }
+    .todo-item.completed .todo-text .strike{ width:100%; }
+
+    .created-time{
+      font-size:0.8125rem;
+      color:#b7bec0;
+      margin-left:8px;
+      white-space:nowrap;
+      flex:0 0 auto;
+    }
+
+    /* Delete button */
+    .delete-btn{
+      background:transparent;
+      border:none;
+      color: var(--accent-red);
+      font-size:20px;
+      cursor:pointer;
+      padding:6px 8px;
+      opacity:0;
+      transform: translateX(6px);
+      border-radius:6px;
+    }
+    .todo-item:hover .delete-btn,
+    .todo-item:focus-within .delete-btn,
+    .delete-btn{
+      background:transparent;
+      border:none;
+      color: var(--accent-red);
+      font-size:20px;
+      cursor:pointer;
+      padding:6px 8px;
+      opacity:0;
+      transform: translateX(6px);
+      border-radius:6px;
+    }
+
+    .todo-item:hover .delete-btn,
+    .todo-item:focus-within .delete-btn {
+      opacity:1;
+      transform: translateX(0);
+    }
+
+    @media (max-width:767px){
+      .todo-item .delete-btn{
+        opacity:1;
+        transform:none;
+      }
+    }
+
+    .todo-item.completed .delete-btn{
+      color: #ff9a9a;
+    }
+    .todo-item .delete-btn{ opacity:1; transform:none; } /* mobile always show on touch */
+
+    .todo-item.adding{
+      transform: translateY(10px);
+      opacity:0;
+    }
+    .todo-item.added{
+      transform: translateY(0);
+      opacity:1;
+    }
+    .todo-item.removing{
+      transform: scale(0.98);
+      opacity:0;
+    }
+
+    /* Skeleton */
+    .skeleton{
+      height:56px;
+      border-radius:10px;
+      background: linear-gradient(90deg, rgba(0,0,0,0.03) 25%, rgba(0,0,0,0.05) 50%, rgba(0,0,0,0.03) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s linear infinite;
+    }
+    @keyframes shimmer{
+      from{ background-position:200% 0; }
+      to{ background-position:-200% 0; }
+    }
+
+    /* Empty illustrations area */
+    .empty {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:12px;
+      padding:28px 12px;
+      color:var(--stat-text);
+    }
+    .empty svg { width:140px; height:120px; opacity:0.9; }
+
+    /* Edit input inside list */
+    .edit-input{
+      font-size:1rem;
+      padding:8px 10px;
+      border-radius:8px;
+      border:1px solid #e6e9ea;
+      width:100%;
+      outline:none;
+    }
+
+    /* Footer stats */
+    .footer-stats{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:center;
+      color:var(--stat-text);
+      font-size:0.875rem;
+      margin-top:12px;
+    }
+
+    /* light/dark toggle */
+    .theme-toggle{
+      background: transparent;
+      border:1px solid transparent;
+      padding:6px 8px;
+      border-radius:8px;
+      cursor:pointer;
+      color:var(--stat-text);
+    }
+
+    /* accessibility focus */
+    .filter-btn:focus, .add-btn:focus, .delete-btn:focus, .theme-toggle:focus { outline: 2px solid rgba(66,184,131,0.18); outline-offset:2px; }
+
+  </style>
+</head>
+<body>
+  <div class="app" id="appRoot" role="application" aria-label="待办事项应用">
+    <!-- Left stats (desktop) -->
+    <aside class="left-panel">
+      <div class="panel stats-card" aria-hidden="false">
+        <div class="progress-wrap" aria-hidden="false">
+          <!-- SVG circle progress -->
+          <svg viewBox="0 0 36 36" width="120" height="120" id="progressSvg" aria-hidden="true">
+            <path d="M18 2.0845
+                     a 15.9155 15.9155 0 0 1 0 31.831
+                     a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e6eef0" stroke-width="2.8"/>
+            <path id="progressBar" d="M18 2.0845
+                     a 15.9155 15.9155 0 0 1 0 31.831
+                     a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--primary)" stroke-width="2.8" stroke-linecap="round" stroke-dasharray="0 100"/>
+          </svg>
+          <div class="progress-label" id="progressLabel">0%</div>
+        </div>
+        <div class="stats-small" id="statsSummary">0 待办 · 0 已完成</div>
+        <div class="stats-small">保持专注，按优先级完成任务</div>
+      </div>
+    </aside>
+
+    <!-- Main column -->
+    <main>
+      <div class="panel">
+        <div class="header">
+          <div class="title">
+            <span>📝 待办事项</span>
+            <span class="accent-line" aria-hidden="true"></span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; justify-content:space-between;">
+            <div style="color:var(--stat-text); font-size:0.95rem;">清新简约 · 分层质感</div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button class="theme-toggle" id="themeToggle" aria-label="切换浅色深色模式">主题</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls" style="margin-top:12px;">
+          <div style="flex:1;">
+            <div class="input-area" role="search" aria-label="添加待办">
+              <input aria-label="新的待办" id="todoInput" class="todo-input" placeholder="添加新的待办事项..." />
+              <button id="addBtn" class="add-btn" aria-label="添加待办">添加</button>
+            </div>
+
+            <div class="filter-row" style="margin-top:14px;">
+              <div class="filters" id="filters" role="tablist" aria-label="筛选待办">
+                <button class="filter-btn active" data-filter="all" role="tab" aria-selected="true">全部</button>
+                <button class="filter-btn" data-filter="active" role="tab" aria-selected="false">未完成</button>
+                <button class="filter-btn" data-filter="completed" role="tab" aria-selected="false">已完成</button>
+                <div class="filter-indicator" id="filterIndicator" aria-hidden="true"></div>
+              </div>
+
+              <div class="batch-actions" id="batchActions">
+                <button id="clearCompleted" class="btn-ghost btn-danger" aria-label="批量删除已完成">清空已完成</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="list-panel" style="margin-top:12px;">
+          <ul id="todoList" class="todo-list" role="list" aria-label="待办列表"></ul>
+
+          <div id="emptyState" class="empty" style="display:none;" aria-hidden="true"></div>
+
+          <div id="skeletonWrap" style="display:none; margin-top:8px;">
+            <div class="skeleton" style="margin-bottom:10px"></div>
+            <div class="skeleton" style="margin-bottom:10px"></div>
+            <div class="skeleton"></div>
+          </div>
+
+          <div class="footer-stats" id="footerStats"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function(){
+      // Utilities
+      const $ = (sel, root=document) => root.querySelector(sel);
+      const fmtTime = (iso) => {
+        const d = new Date(iso);
+        const now = new Date();
+        const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+        const pad = n => n.toString().padStart(2,'0');
+        if (sameDay) return '今天 ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+        return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+      };
+
+      // Elements
+      const todoInput = $('#todoInput');
+      const addBtn = $('#addBtn');
+      const todoList = $('#todoList');
+      const filtersEl = $('#filters');
+      const filterButtons = Array.from(filtersEl.querySelectorAll('.filter-btn'));
+      const filterIndicator = $('#filterIndicator');
+      const emptyState = $('#emptyState');
+      const skeletonWrap = $('#skeletonWrap');
+      const clearCompletedBtn = $('#clearCompleted');
+      const batchActions = $('#batchActions');
+      const progressLabel = $('#progressLabel');
+      const progressBar = $('#progressBar');
+      const statsSummary = $('#statsSummary');
+      const footerStats = $('#footerStats');
+      const themeToggle = $('#themeToggle');
+
+      // State
+      let todos = [];
+      let nextId = 1;
+      let currentFilter = 'all';
+      let isLoading = true;
+      let theme = null; // 'light' | 'dark' or null follow system
+
+      // Accessibility: set aria for batch button visibility
+      function updateBatchVisibility(){
+        const completed = todos.filter(t => t.completed).length;
+        if (completed > 0){
+          clearCompletedBtn.style.display = 'inline-block';
+          clearCompletedBtn.setAttribute('aria-hidden','false');
+        } else {
+          clearCompletedBtn.style.display = 'none';
+          clearCompletedBtn.setAttribute('aria-hidden','true');
+        }
+      }
+
+      // Save / load
+      function save(){
+        localStorage.setItem('todos', JSON.stringify({todos, nextId}));
+      }
+      function load(){
+        try{
+          const raw = localStorage.getItem('todos');
+          if (raw){
+            const data = JSON.parse(raw);
+            todos = data.todos || [];
+            nextId = data.nextId || (todos.reduce((m,t)=>Math.max(m,t.id),0)+1) || 1;
+          }
+        }catch(e){
+          console.error('加载本地数据失败',e);
+          todos = [];
+          nextId = 1;
+        }
+      }
+
+      // Skeleton while loading
+      function showSkeleton(){
+        skeletonWrap.style.display = 'block';
+        todoList.style.display = 'none';
+        emptyState.style.display = 'none';
+      }
+      function hideSkeleton(){
+        skeletonWrap.style.display = 'none';
+        todoList.style.display = 'block';
+      }
+
+      // Filters indicator animation
+      function updateFilterIndicator(){
+        const active = filtersEl.querySelector('.filter-btn.active');
+        if (!active) return;
+        const rect = active.getBoundingClientRect();
+        const parentRect = filtersEl.getBoundingClientRect();
+        const left = active.offsetLeft;
+        const width = active.offsetWidth;
+        filterIndicator.style.width = width + 'px';
+        filterIndicator.style.transform = 'translateX(' + left + 'px)';
+      }
+
+      window.addEventListener('resize', () => updateFilterIndicator());
+      // Call on next tick to ensure layout computed
+      setTimeout(updateFilterIndicator, 100);
+
+      // Render progress circle using stroke-dasharray
+      function updateProgress(){
+        const total = todos.length || 0;
+        const completed = todos.filter(t => t.completed).length;
+        const pct = total === 0 ? 0 : Math.round((completed / total) * 100);
+        progressLabel.textContent = pct + '%';
+        // stroke-dasharray of 100 compute dashed length
+        progressBar.setAttribute('stroke-dasharray', pct + ' 100');
+        statsSummary.textContent = total + ' 待办 · ' + completed + ' 已完成';
+        footerStats.innerHTML = `<strong>总计: ${total}</strong> · 未完成: ${total - completed} · 已完成: ${completed}`;
+      }
+
+      // Create single todo DOM element
+      function createTodoNode(todo, animate=false){
+        const li = document.createElement('li');
+        li.className = 'todo-item' + (todo.completed ? ' completed' : '');
+        li.dataset.id = todo.id;
+
+        // Left wrapper
+        const left = document.createElement('div');
+        left.className = 'todo-left';
+
+        // checkbox
+        const cbWrap = document.createElement('label');
+        cbWrap.className = 'todo-checkbox';
+        cbWrap.setAttribute('aria-label', todo.completed ? '标记未完成' : '标记完成');
+        cbWrap.tabIndex = 0;
+        cbWrap.role = 'button';
+
+        const cbInput = document.createElement('input');
+        cbInput.type = 'checkbox';
+        cbInput.checked = todo.completed;
+        cbInput.setAttribute('aria-checked', todo.completed ? 'true' : 'false');
+
+        // inline svg check
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS,'svg');
+        svg.setAttribute('viewBox','0 0 24 24');
+        const path = document.createElementNS(svgNS,'path');
+        path.setAttribute('d','M20.285 6.708l-11 11-5.57-5.571 1.414-1.414 4.156 4.157 9.585-9.585z');
+        path.setAttribute('fill','currentColor');
+        svg.appendChild(path);
+
+        cbWrap.appendChild(cbInput);
+        cbWrap.appendChild(svg);
+
+        // checkbox interaction
+        cbWrap.addEventListener('click', (e) => {
+          e.preventDefault();
+          toggleTodo(todo.id);
+        });
+        cbWrap.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleTodo(todo.id);
+          }
+        });
+
+        // text
+        const span = document.createElement('div');
+        span.className = 'todo-text';
+        span.tabIndex = 0;
+        span.textContent = todo.text;
+
+        // strike overlay
+        const strike = document.createElement('div');
+        strike.className = 'strike';
+        span.appendChild(strike);
+
+        // created time
+        const ctime = document.createElement('div');
+        ctime.className = 'created-time';
+        ctime.textContent = fmtTime(todo.createdAt || new Date().toISOString());
+
+        // double-click to edit
+        span.addEventListener('dblclick', (ev) => {
+          enterEditMode(li, todo);
+        });
+
+        // support keyboard enter to edit
+        span.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            enterEditMode(li, todo);
+          }
+        });
+
+        left.appendChild(cbWrap);
+        left.appendChild(span);
+
+        // delete button
+        const del = document.createElement('button');
+        del.className = 'delete-btn';
+        del.setAttribute('aria-label','删除待办');
+        del.innerHTML = '&times;';
+        del.addEventListener('click', () => removeTodo(todo.id, li));
+
+        // assemble
+        li.appendChild(left);
+        li.appendChild(ctime);
+        li.appendChild(del);
+
+        // animate in
+        if (animate){
+          li.classList.add('adding');
+          requestAnimationFrame(() => {
+            // let next tick set added
+            li.classList.add('added');
+            li.classList.remove('adding');
+          });
+        } else {
+          li.style.opacity = 1;
+        }
+
+        return li;
+      }
+
+      // Bulk render using DocumentFragment for perf
+      function renderTodos(){
+        // Clear existing list
+        todoList.innerHTML = '';
+
+        const filtered = getFilteredTodos();
+        if (filtered.length === 0){
+          // show empty state with illustration depending on filter
+          todoList.style.display = 'none';
+          emptyState.style.display = 'flex';
+          let svgStr = '';
+          if (currentFilter === 'all'){
+            svgStr = `<svg viewBox="0 0 120 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"><rect x="10" y="12" width="100" height="76" rx="8" /><path d="M22 30h76" /><path d="M22 44h76" /><path d="M22 58h50" /></g></svg>`;
+            emptyState.innerHTML = svgStr + '<div style="font-weight:600;">还没有待办事项，添加第一个吧～</div><div style="font-size:0.9rem;color:var(--stat-text)">写下你的计划并开始专注</div>';
+          } else if (currentFilter === 'active'){
+            svgStr = `<svg viewBox="0 0 120 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="12" width="100" height="76" rx="8" /><path d="M22 44h76" /><path d="M40 30l8 8 18-18" /></g></svg>`;
+            emptyState.innerHTML = svgStr + '<div style="font-weight:600;">未完成的事项都已完成啦～</div><div style="font-size:0.9rem;color:var(--stat-text)">可以切换到“全部”查看历史</div>';
+          } else {
+            svgStr = `<svg viewBox="0 0 120 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="12" width="100" height="76" rx="8" /><path d="M22 44h76" /><path d="M40 30l8 8 18-18" /></g></svg>`;
+            emptyState.innerHTML = svgStr + '<div style="font-weight:600;">没有已完成的待办</div><div style="font-size:0.9rem;color:var(--stat-text)">加一点并完成它们，体验成就感</div>';
+          }
+        } else {
+          emptyState.style.display = 'none';
+          todoList.style.display = 'block';
+          const frag = document.createDocumentFragment();
+          filtered.forEach((t, idx) => {
+            const node = createTodoNode(t, false);
+            frag.appendChild(node);
+          });
+          todoList.appendChild(frag);
+        }
+
+        updateProgress();
+        updateBatchVisibility();
+        updateFilterIndicator();
+        save();
+      }
+
+      function getFilteredTodos(){
+        switch(currentFilter){
+          case 'active': return todos.filter(t => !t.completed);
+          case 'completed': return todos.filter(t => t.completed);
+          default: return todos;
+        }
+      }
+
+      // Add
+      function addTodoFromInput(){
+        const text = todoInput.value.trim();
+        if (!text) return;
+        const todo = { id: nextId++, text, completed:false, createdAt:new Date().toISOString() };
+        todos.push(todo);
+        todoInput.value = '';
+        // render new card with animation at top or bottom? add to top
+        // Keep order: push to end
+        const node = createTodoNode(todo, true);
+        // insert at top of list for visibility
+        const first = todoList.firstChild;
+        todoList.insertBefore(node, first);
+        // ensure selected filter shows it
+        if (currentFilter !== 'all' && currentFilter === 'completed'){
+          // if adding while viewing completed, switch to all
+          setFilter('all');
+        } else {
+          renderTodos(); // safer to re-render (maintain stats etc)
+        }
+
+        // small focus animation
+        node.classList.add('added');
+        setTimeout(()=> {
+          node.classList.remove('added');
+        }, 400);
+
+        save();
+      }
+
+      // Toggle
+      function toggleTodo(id){
+        const t = todos.find(x => x.id === id);
+        if (!t) return;
+        t.completed = !t.completed;
+        save();
+        // animate strike/checkbox fade via re-rendering that swaps class
+        const li = todoList.querySelector(`li[data-id="${id}"]`);
+        if (li){
+          if (t.completed){
+            li.classList.add('completed');
+          } else {
+            li.classList.remove('completed');
+          }
+          // update checkbox aria and input
+          const cb = li.querySelector('input[type="checkbox"]');
+          if (cb){ cb.checked = t.completed; cb.setAttribute('aria-checked', t.completed?'true':'false'); }
+        }
+        // if current filter hides this item, re-render list
+        if ((currentFilter === 'active' && t.completed) || (currentFilter === 'completed' && !t.completed)){
+          renderTodos();
+        } else {
+          updateProgress();
+          updateBatchVisibility();
+          save();
+        }
+      }
+
+      // Remove with animation
+      function removeTodo(id, liNode){
+        const idx = todos.findIndex(t => t.id === id);
+        if (idx === -1) return;
+        // animate
+        if (!liNode) liNode = todoList.querySelector(`li[data-id="${id}"]`);
+        if (liNode){
+          liNode.classList.add('removing');
+          setTimeout(()=> {
+            todos.splice(idx,1);
+            save();
+            renderTodos();
+          }, 280);
+        } else {
+          todos.splice(idx,1);
+          save();
+          renderTodos();
+        }
+      }
+
+      // Batch clear completed
+      function clearCompleted(){
+        const completed = todos.filter(t => t.completed).map(t => t.id);
+        if (completed.length === 0) return;
+        // animate removing all completed nodes
+        completed.forEach(id => {
+          const node = todoList.querySelector(`li[data-id="${id}"]`);
+          if (node){
+            node.classList.add('removing');
+          }
+        });
+        setTimeout(()=> {
+          todos = todos.filter(t => !t.completed);
+          save();
+          renderTodos();
+        }, 300);
+      }
+
+      // Edit mode
+      function enterEditMode(li, todo){
+        const textDiv = li.querySelector('.todo-text');
+        const original = todo.text;
+        const input = document.createElement('input');
+        input.className = 'edit-input';
+        input.value = original;
+        textDiv.style.display = 'none';
+        li.insertBefore(input, textDiv);
+        input.focus();
+        input.select();
+
+        function commit(){
+          const v = input.value.trim();
+          if (v === ''){
+            // do not allow empty — keep original or delete?
+            todo.text = original;
+          } else {
+            todo.text = v;
+          }
+          save();
+          input.remove();
+          textDiv.style.display = '';
+          textDiv.firstChild.nodeValue = todo.text; // update text node
+          renderTodos();
+        }
+        function cancel(){
+          input.remove();
+          textDiv.style.display = '';
+        }
+
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter'){ commit(); }
+          if (e.key === 'Escape'){ cancel(); }
+        });
+        input.addEventListener('blur', (e) => { commit(); });
+      }
+
+      // Set filter
+      function setFilter(f){
+        currentFilter = f;
+        filterButtons.forEach(btn => {
+          const isActive = btn.dataset.filter === f;
+          btn.classList.toggle('active', isActive);
+          btn.setAttribute('aria-selected', isActive?'true':'false');
+        });
+        updateFilterIndicator();
+        renderTodos();
+      }
+
+      // Theme handling
+      function initTheme(){
+        const saved = localStorage.getItem('todo_theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (saved === 'dark' || (saved === null && prefersDark)) {
+          document.documentElement.setAttribute('data-theme','dark');
+          theme = 'dark';
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+          theme = 'light';
+        }
+        updateThemeToggleLabel();
+      }
+      function toggleTheme(){
+        if (theme === 'dark'){
+          theme = 'light';
+          document.documentElement.removeAttribute('data-theme');
+          localStorage.setItem('todo_theme', 'light');
+        } else {
+          theme = 'dark';
+          document.documentElement.setAttribute('data-theme','dark');
+          localStorage.setItem('todo_theme', 'dark');
+        }
+        updateThemeToggleLabel();
+      }
+      function updateThemeToggleLabel(){
+        themeToggle.textContent = theme === 'dark' ? '🌙 深色' : '☀️ 浅色';
+      }
+
+      // Event bindings
+      addBtn.addEventListener('click', () => addTodoFromInput());
+      todoInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTodoFromInput(); });
+      filterButtons.forEach(btn => btn.addEventListener('click', () => setFilter(btn.dataset.filter)));
+      clearCompletedBtn.addEventListener('click', clearCompleted);
+      themeToggle.addEventListener('click', toggleTheme);
+
+      // Initial load with skeleton
+      showSkeleton();
+      initTheme();
+
+      // Simulate quick load so skeleton visible briefly
+      setTimeout(() => {
+        load();
+        isLoading = false;
+        hideSkeleton();
+        renderTodos();
+      }, 450);
+
+      // Accessibility: keyboard shortcuts
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k'){ // focus input
+          e.preventDefault();
+          todoInput.focus();
+        }
+      });
+
+      // Update indicator after fonts/layout ready
+      window.addEventListener('load', () => setTimeout(updateFilterIndicator, 150));
+    })();
+  </script>
+</body>
+</html>
